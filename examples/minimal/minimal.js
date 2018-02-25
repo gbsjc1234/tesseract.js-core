@@ -1,30 +1,27 @@
-var lang = 'eng'; 
+const lang = 'eng';
 
-var fs   = require("fs")
-var TesseractCore = require('../../')
-var Module = TesseractCore();
+const fs = require('fs');
+const TesseractCore = require('../../');
+const { width, height, data } = require('./test-image');
 
-// This requires eng.traineddata to be located in the same directory!
-var buf = fs.readFileSync(lang + '.traineddata');
-Module.FS_createPath("/", "tessdata", true, true)
-Module.FS_createDataFile('tessdata', lang + '.traineddata', buf, true, false);
+const Module = TesseractCore();
+const tessAPI = new Module.TessBaseAPI();
 
-var image = require('./test-image');
+const buf = fs.readFileSync(`../traineddata/${lang}.traineddata`);
 
-var width = image.width,
-    height = image.height,
-    pic = new Uint8Array(width * height);
-var picptr = Module.allocate(image.data, 'i8', Module.ALLOC_NORMAL);
-var base = new Module.TessBaseAPI()
-base.Init(null, lang)
-base.SetImage(Module.wrapPointer(picptr), width, height, 1, width)
-base.SetRectangle(0, 0, width, height)
+Module.FS.mkdir('/tessdata');
+Module.FS.writeFile(`/tessdata/${lang}.traineddata`, buf);
 
-// recognize the text on the image
-var text = base.GetUTF8Text()
-console.log(text)
+const ptr = Module._malloc(data.length * Uint8Array.BYTES_PER_ELEMENT);
 
-// cleanup memory
-base.End();
-Module.destroy(base)
-Module._free(picptr);
+Module.HEAPU8.set(data, ptr);
+
+tessAPI.Init(null, lang);
+tessAPI.SetImage(ptr, width, height, Uint8Array.BYTES_PER_ELEMENT, width);
+tessAPI.SetRectangle(0, 0, width, height);
+
+console.log(tessAPI.GetUTF8Text());
+
+tessAPI.End();
+Module.destroy(tessAPI);
+Module._free(ptr);
